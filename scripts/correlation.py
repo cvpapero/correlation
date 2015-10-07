@@ -5,6 +5,7 @@
 import sys
 import math
 import json
+import numpy
 
 from PyQt4 import QtGui, QtCore
 from PyQt4.QtCore import *
@@ -28,26 +29,29 @@ class Correlation(QtGui.QWidget):
         form = QtGui.QFormLayout()
 
         self.ThesholdBox = QtGui.QLineEdit()
-        self.ThesholdBox.setText('0.7')
+        self.ThesholdBox.setText('0.4')
         self.ThesholdBox.setAlignment(QtCore.Qt.AlignRight)
         self.ThesholdBox.setFixedWidth(100)
         form.addRow('Theshold', self.ThesholdBox)
 
+        self.VarMinBox = QtGui.QLineEdit()
+        self.VarMinBox.setText('0.01')
+        self.VarMinBox.setAlignment(QtCore.Qt.AlignRight)
+        self.VarMinBox.setFixedWidth(100)
+        form.addRow('Var Min', self.VarMinBox)
+
         self.winSizeBox = QtGui.QLineEdit()
-        self.winSizeBox.setText('30')
+        self.winSizeBox.setText('3')
         self.winSizeBox.setAlignment(QtCore.Qt.AlignRight)
         self.winSizeBox.setFixedWidth(100)
         form.addRow('window size', self.winSizeBox)
 
-
-        joints = ("0","1","2","3","4","5","6","7")
- 
         self.cmbSrcJoints = QtGui.QComboBox(self)
-        self.cmbSrcJoints.addItems(joints)
+        self.cmbSrcJoints.addItems(self.jointnames)
         self.cmbSrcJoints.setFixedWidth(150)
         boxSrcJoints = QtGui.QHBoxLayout()
         boxSrcJoints.addWidget(self.cmbSrcJoints)
-        form.addRow('user1 joints', boxSrcJoints)
+        form.addRow('user_1 joint', boxSrcJoints)
 
         boxCtrl = QtGui.QHBoxLayout()
         btnExec = QtGui.QPushButton('exec')
@@ -59,50 +63,55 @@ class Correlation(QtGui.QWidget):
         self.setLayout(grid)
         self.resize(400,100)
 
-        self.setWindowTitle("joints select")
+        self.setWindowTitle("joint select window")
         self.show()
 
 
     def jsonInput(self):
         print "input"
-        f = open('outdata2.json', 'r');
+        f = open('testdata.json', 'r');
         jsonData = json.load(f)
         #print json.dumps(jsonData, sort_keys = True, indent = 4)
         f.close()
 
         self.data = {}
+        self.jointnames = []
         u = 0;
         for user in jsonData:
             jsize = len(user["datas"][0]["data"])            
             tsize = len(user["datas"])
-            #print tsize
 
             jobj = {}
             for j in range(0, jsize):
+
                 jlist = []
                 for t in range(0, tsize):
                     jlist.append(user["datas"][t]["data"][j])
                 jobj[j] = jlist
-                #self.jointnames = self.jointnames + tuple("joint_"+str(j))
-
+                if u == 0:
+                    self.jointnames.append(str(j))
             self.data[u]=jobj
             u+=1
 
     def doExec(self):
         print "exec! joint_"+self.cmbSrcJoints.currentText()
         j_idx_u1 = int(self.cmbSrcJoints.currentText())
-        self.process(j_idx_u1)
-        print "end"
-
-    def process(self, j_idx_u1):
-        print "process"
         self.winSize = int(self.winSizeBox.text())
         self.jointSize = len(self.data[0])
         self.dataSize = len(self.data[0][j_idx_u1])
         self.maxRange = self.dataSize - self.winSize
         self.threshold = float(self.ThesholdBox.text())
+        self.varMin = float(self.VarMinBox.text())
+        self.process(j_idx_u1)
+        print "end"
 
-        print self.jointSize
+    def process(self, j_idx_u1):
+        print "user1 data[]:"+str(self.data[0])
+        print "user2 data[]:"+str(self.data[1])
+        print "data size:"+str(self.dataSize)
+        print "joint size:"+str(self.jointSize)
+        print "winsize:"+str(self.winSize)
+        print "max_range:"+str(self.maxRange)
 
         if self.maxRange < 0:
             print "max_range:"+str(self.maxRange)+" is error"
@@ -112,9 +121,10 @@ class Correlation(QtGui.QWidget):
             self.calc_proc(j_idx_u1, j_idx_u2)
 
     def calc_proc(self, idx_u1, idx_u2): 
-        set1 = []
-        set2 = []        
-        for dt in range(-self.maxRange, self.maxRange):
+       
+        for dt in range(-self.maxRange, self.maxRange+1):
+            set1 = []
+            set2 = [] 
             for idx in range(0, self.winSize):
                 d1_idx = 0
                 d2_idx = 0
@@ -127,45 +137,23 @@ class Correlation(QtGui.QWidget):
                 set1.append(self.data[0][idx_u1][d1_idx+idx])
                 set2.append(self.data[1][idx_u2][d1_idx+idx])
 
-            self.dst = 0
-            self.calc_corr(set1, set1, False)
-            if self.dst < 0.01:
-                pass
+            print "user1 joint_"+str(idx_u1)+" dt:"+str(dt)+", set1:"+str(set1)
+            print "user2 joint_"+str(idx_u2)+" dt:"+str(dt)+", set2:"+str(set2)
 
-            self.calc_corr(set2, set2, False)
-            if self.dst < 0.01:
-                pass
+            var1 = numpy.var(set1)
+            if var1 < self.varMin:
+                continue
 
-            self.calc_corr(set1, set2, True)
-            if math.fabs(self.dst) > self.threshold:
-                print "("+str(idx_u1)+", "+ str(idx_u2)+"): dt:" + str(dt)+", r:"+str(self.dst)
+            var2 = numpy.var(set2)
+            if var2 < self.varMin:
+                continue
 
+            corr = numpy.corrcoef(set1, set2)
+            r_val=corr[0,1]
 
-    def calc_corr(self, d1, d2, denom):
-        d1_ave=self.mean(d1)
-        d2_ave=self.mean(d2)
-        
-        sig1sig2 = 0
-        sig1sq = 0
-        sig2sq = 0
-
-        for i in range(0, len(d1)):
-            sig1 = d1[i] - d1_ave
-            sig2 = d2[i] - d2_ave
-            sig1sig2 += sig1*sig2
-            sig1sq += sig1*sig1  
-            sig2sq += sig2*sig2
-
-        if denom == True:
-            self.dst = sig1sig2 / (math.sqrt(sig1sq)*math.sqrt(sig2sq))
-        else:
-            self.dst = math.sqrt(sig1sq) * math.sqrt(sig2sq)
-    
-    def mean(self, data):
-        sum = 0
-        for d in data:
-            sum += d
-        return sum/len(data)
+            if math.fabs(r_val) > self.threshold:
+                print "("+str(idx_u1)+", "+ str(idx_u2)+"): dt:" + str(dt)+", r:"+str(r_val)
+                print "var1:"+str(var1)+",var2:"+str(var2)
 
 def main():
     app = QtGui.QApplication(sys.argv)
