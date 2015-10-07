@@ -1,0 +1,27 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+
+
+import sys
+
+class Correlation(object):
+
+    def __init__(self):
+        self.winsize = 30
+        self.threshold = 0.7
+        print "init"
+
+    def process(self):
+
+
+
+def main():
+    #app = QtGui.QApplication(sys.argv)
+
+    corr = Correlation()
+    
+
+    #sys.exit(app.exec_())
+
+if __name__=='__main__':
+    main()
