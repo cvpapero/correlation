@@ -14,22 +14,26 @@ from PyQt4.QtGui  import *
 class Correlation(QtGui.QWidget):
 
     def __init__(self):
-        
-        #self.winsize = 100
-        #self.threshold = 0.7
         self.jsonInput()
 
         super(Correlation, self).__init__()
         self.initUI()
 
-        #print len(self.data[0][1])
-
     def initUI(self):
         grid = QtGui.QGridLayout()
         form = QtGui.QFormLayout()
-
+        '''
+        self.txtSepFile = gui.QLineEdit()
+        btnSepFile = QtGui.QPushButton('...')
+        btnSepFile.setMaximumWidth(40)
+        btnSepFile.clicked.connect(self.chooseDbFile)
+        boxSepFile = gui.QHBoxLayout()
+        boxSepFile.addWidget(self.txtSepFile)
+        boxSepFile.addWidget(btnSepFile)
+        form.addRow('input file', boxSepFile)
+        '''
         self.ThesholdBox = QtGui.QLineEdit()
-        self.ThesholdBox.setText('0.4')
+        self.ThesholdBox.setText('0.7')
         self.ThesholdBox.setAlignment(QtCore.Qt.AlignRight)
         self.ThesholdBox.setFixedWidth(100)
         form.addRow('Theshold', self.ThesholdBox)
@@ -41,7 +45,7 @@ class Correlation(QtGui.QWidget):
         form.addRow('Var Min', self.VarMinBox)
 
         self.winSizeBox = QtGui.QLineEdit()
-        self.winSizeBox.setText('3')
+        self.winSizeBox.setText('40')
         self.winSizeBox.setAlignment(QtCore.Qt.AlignRight)
         self.winSizeBox.setFixedWidth(100)
         form.addRow('window size', self.winSizeBox)
@@ -68,8 +72,7 @@ class Correlation(QtGui.QWidget):
 
 
     def jsonInput(self):
-        print "input"
-        f = open('testdata.json', 'r');
+        f = open('outdata2.json', 'r');
         jsonData = json.load(f)
         #print json.dumps(jsonData, sort_keys = True, indent = 4)
         f.close()
@@ -106,8 +109,8 @@ class Correlation(QtGui.QWidget):
         print "end"
 
     def process(self, j_idx_u1):
-        print "user1 data[]:"+str(self.data[0])
-        print "user2 data[]:"+str(self.data[1])
+        #print "user1 data[]:"+str(self.data[0])
+        #print "user2 data[]:"+str(self.data[1])
         print "data size:"+str(self.dataSize)
         print "joint size:"+str(self.jointSize)
         print "winsize:"+str(self.winSize)
@@ -128,17 +131,17 @@ class Correlation(QtGui.QWidget):
             for idx in range(0, self.winSize):
                 d1_idx = 0
                 d2_idx = 0
-                if dt < 0:
+                if dt >= 0:
                     d1_idx = self.dataSize-self.winSize-abs(dt)
                     d2_idx = self.dataSize-self.winSize
-                if dt >= 0:
+                if dt < 0:
                     d1_idx = self.dataSize-self.winSize                 
                     d2_idx = self.dataSize-self.winSize-abs(dt)
                 set1.append(self.data[0][idx_u1][d1_idx+idx])
-                set2.append(self.data[1][idx_u2][d1_idx+idx])
+                set2.append(self.data[1][idx_u2][d2_idx+idx])
 
-            print "user1 joint_"+str(idx_u1)+" dt:"+str(dt)+", set1:"+str(set1)
-            print "user2 joint_"+str(idx_u2)+" dt:"+str(dt)+", set2:"+str(set2)
+            #print "user1 joint_"+str(idx_u1)+" dt:"+str(dt)+", set1:"+str(set1)
+            #print "user2 joint_"+str(idx_u2)+" dt:"+str(dt)+", set2:"+str(set2)
 
             var1 = numpy.var(set1)
             if var1 < self.varMin:
@@ -153,7 +156,7 @@ class Correlation(QtGui.QWidget):
 
             if math.fabs(r_val) > self.threshold:
                 print "("+str(idx_u1)+", "+ str(idx_u2)+"): dt:" + str(dt)+", r:"+str(r_val)
-                print "var1:"+str(var1)+",var2:"+str(var2)
+                #print "var1:"+str(var1)+",var2:"+str(var2)
 
 def main():
     app = QtGui.QApplication(sys.argv)
