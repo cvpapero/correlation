@@ -38,11 +38,13 @@ class Correlation(QtGui.QWidget):
         self.ThesholdBox.setFixedWidth(100)
         form.addRow('corr theshold', self.ThesholdBox)
 
+    
         self.VarMinBox = QtGui.QLineEdit()
         self.VarMinBox.setText('1')
         self.VarMinBox.setAlignment(QtCore.Qt.AlignRight)
         self.VarMinBox.setFixedWidth(100)
         form.addRow('deg threshold', self.VarMinBox)
+        
 
         self.winSizeBox = QtGui.QLineEdit()
         self.winSizeBox.setText('40')
@@ -103,16 +105,18 @@ class Correlation(QtGui.QWidget):
         f.close()
 
         self.data = {}
+        self.pdata = {}
         self.jointnames = []
         self.time = []
+        self.usrSize = len(jsonData)
+
         u = 0;
         for user in jsonData:
+            #angle
             jsize = len(user["datas"][0]["data"])            
             tsize = len(user["datas"])
-
             jobj = {}
             for j in range(0, jsize):
-
                 jlist = []
                 for t in range(0, tsize):
                     jlist.append(user["datas"][t]["data"][j])
@@ -120,6 +124,23 @@ class Correlation(QtGui.QWidget):
                 if u == 0:
                     self.jointnames.append(str(j))
             self.data[u]=jobj
+            #position
+            psize = len(user["datas"][0]["jdata"])            
+            tsize = len(user["datas"])
+            pobj = {}
+            for p in range(0, psize):
+                plist = []
+                for t in range(0, tsize):
+                    pl = []
+                    #print str(p)+","+str(t)
+                    #print user["datas"][t]["jdata"][p]
+                    pl.append(user["datas"][t]["jdata"][p][0])
+                    pl.append(user["datas"][t]["jdata"][p][1])
+                    pl.append(user["datas"][t]["jdata"][p][2])
+                    plist.append(pl)
+                pobj[p] = plist
+            self.pdata[u] = pobj
+
             u+=1
 
         for itime in jsonData[0]["datas"]:
@@ -131,6 +152,21 @@ class Correlation(QtGui.QWidget):
         
         self.jointSize = len(self.data[0])
         self.dataSize = len(self.data[0][0])
+
+        #joint index
+        f = open('joint_index.json', 'r');
+        jsonIndexData = json.load(f)
+        #print json.dumps(jsonData, sort_keys = True, indent = 4)
+        f.close()
+        self.idata = []
+
+        for index in jsonIndexData:
+            ilist = []
+            for i in index:
+                ilist.append(i)
+            self.idata.append(ilist)
+            
+        #print self.idata
 
     def doExec(self):
         print "exec! joint_"+self.cmbSrcJoints.currentText()
@@ -149,7 +185,37 @@ class Correlation(QtGui.QWidget):
         print "end"
 
     def doViz(self, cItem):
+        idx_u0 = int(self.cmbSrcJoints.currentText())
+
         print "now viz!"+str(cItem.row())+","+str(cItem.column())
+        jidx = self.idata[cItem.column()]
+        #print str(self.idata[cItem.column()][0])+","+str(self.idata[cItem.column()][1])+","+str(self.idata[cItem.column()][2]) 
+        print str(jidx[0])+","+str(jidx[1])+","+str(jidx[2])
+        
+        i0 = jidx[0]
+        i1 = jidx[1]
+        i2 = jidx[2]
+
+        usr = 0
+        delay = cItem.row() - self.maxRange
+
+        print "len:"+str(len(self.pdata[usr][i0]))
+
+        for didx in range(0, self.winSize):
+            dt1 = self.dataSize - self.winSize
+            dt2 = dt1 - abs(delay)
+            if delay >= 0:
+                plist = []
+                pl = []
+                print "dt:"+str(dt)
+                print "dt+didx:"+str(dt+didx)
+                print str(self.pdata[usr][i0][dt2+didx][0])+","+str(self.pdata[usr][i0][dt2+didx][1])+","+str(self.pdata[usr][i0][dt2+didx][2])
+                
+                #print str(self.pdata[usr][i1][dt][0])+","+str(self.pdata[usr][i1][dt][1])+","+str(self.pdata[usr][i1][dt][2])
+                #print str(self.pdata[usr][i2][dt][0])+","+str(self.pdata[usr][i2][dt][1])+","+str(self.pdata[usr][i2][dt][2])
+            if delay < 0:
+                pass
+        #print self.maxRange
         #print "now viz!"+str(row)
 
     def updateTable(self):
@@ -174,6 +240,8 @@ class Correlation(QtGui.QWidget):
                 self.table.setItem(i, j, QtGui.QTableWidgetItem())
                 self.table.item(i, j).setBackground(QtGui.QColor(c,c,c))
                 self.table.item(i, j).setToolTip(str(self.corrMat[i][j]))
+        
+        print "click"
         self.table.itemClicked.connect(self.doViz)
 
     def process(self, j_idx_u1):
@@ -225,7 +293,7 @@ class Correlation(QtGui.QWidget):
             r_val=corr[0,1]
 
             if math.fabs(r_val) > self.threshold:
-                print "("+str(idx_u1)+", "+ str(idx_u2)+"): dt:" + str(dt)+", r:"+str(r_val)
+                #print "("+str(idx_u1)+", "+ str(idx_u2)+"): dt:" + str(dt)+", r:"+str(r_val)
                 self.corrMat[count][idx_u2]=r_val
 
             count+=1
