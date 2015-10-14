@@ -31,7 +31,7 @@ class Correlation(QtGui.QWidget):
 
 
         self.carray = []
-        clist = [[0,0,1,1],[0,1,0,1],[1,0,0,1]]
+        clist = [[1,1,0,1],[0,1,0,1],[1,0,0,1]]
         for c in clist:
             color = ColorRGBA()
             color.r = c[0]
@@ -222,15 +222,19 @@ class Correlation(QtGui.QWidget):
             dt2 = dt1 - abs(delay)
             p0 = []
             p1 = []
+            p2 = []
             pl = []
             angle = []
             if delay >= 0:
+            
                 p0.append(self.pdata[0][i00][dt2+didx])
                 p0.append(self.pdata[0][i01][dt2+didx])
                 p0.append(self.pdata[0][i02][dt2+didx])
                 p1.append(self.pdata[1][i10][dt1+didx])
                 p1.append(self.pdata[1][i11][dt1+didx])
                 p1.append(self.pdata[1][i12][dt1+didx])
+                p2.append(self.pointStore(self.pdata[0], dt2+didx))
+                p2.append(self.pointStore(self.pdata[1], dt1+didx))
                 angle.append(self.data[0][idx_u0][dt2+didx])
                 angle.append(self.data[1][idx_u1][dt1+didx])
 
@@ -241,27 +245,35 @@ class Correlation(QtGui.QWidget):
                 p1.append(self.pdata[1][i10][dt2+didx])
                 p1.append(self.pdata[1][i11][dt2+didx])
                 p1.append(self.pdata[1][i12][dt2+didx])
+                p2.append(self.pointStore(self.pdata[0], dt1+didx))
+                p2.append(self.pointStore(self.pdata[1], dt2+didx))
                 angle.append(self.data[0][idx_u0][dt1+didx])
                 angle.append(self.data[1][idx_u1][dt2+didx])
                 
             pl.append(p0)
             pl.append(p1)
-            
-            self.pubRviz(pl)
+            #print p2
+            self.pubRviz(pl, p2)
             self.pubPoint(angle)
             rate.sleep()
             #print "didx:"+str(didx)
 
+    def pointStore(self, pl, idx):
+        parray = []
+        for p in range(len(pl)):
+            parray.append(pl[p][idx])
+        return parray
+
     def pubPoint(self, p):
         msg = PointStamped()
-        print p
+        #print p
         msg.header.stamp = rospy.Time.now()
         msg.point.x = p[0]
         msg.point.y = p[1]
         self.ppub.publish(msg)
 
 
-    def pubRviz(self, pos):
+    def pubRviz(self, pos, joints):
 
         msgs = MarkerArray()
         for p in range(len(pos)):
@@ -272,22 +284,39 @@ class Correlation(QtGui.QWidget):
             msg.ns = 'marker'
             msg.action = 0
             msg.id = p
-            msg.type = 8
+            msg.type = 4
             msg.scale.x = 0.1
             msg.scale.y = 0.1
-            if p == 0:
-                msg.color.r = 1.0
-                msg.color.a = 1.0
-            else:
-                msg.color.r = 1.0
-                msg.color.g = 1.0
-                msg.color.a = 1.0
-            
+            msg.color = self.carray[2]
+
             for i in range(len(pos[p])):
                 point = Point()
                 point.x = pos[p][i][0]
                 point.y = pos[p][i][1]
                 point.z = pos[p][i][2]
+                msg.points.append(point) 
+            msg.pose.orientation.w = 1.0
+            msgs.markers.append(msg)
+
+        for j in range(len(joints)):
+            msg = Marker()
+
+            msg.header.frame_id = 'camera_link'
+            msg.header.stamp = rospy.Time.now()
+            msg.ns = 'joints'
+            msg.action = 0
+            msg.id = j
+            msg.type = 8
+            msg.scale.x = 0.1
+            msg.scale.y = 0.1
+            msg.color = self.carray[j]
+
+            #print "joints len:"+str(len(joints[j]))
+            for i in range(len(joints[j])):
+                point = Point()
+                point.x = joints[j][i][0]
+                point.y = joints[j][i][1]
+                point.z = joints[j][i][2]
                 msg.points.append(point) 
             msg.pose.orientation.w = 1.0
             msgs.markers.append(msg)
